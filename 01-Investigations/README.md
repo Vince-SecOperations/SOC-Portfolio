@@ -11,3 +11,4 @@ This folder contains real-world style SOC investigations, including log analysis
 - Recommendations  
 
 Each investigation is inside its own folder.
+
