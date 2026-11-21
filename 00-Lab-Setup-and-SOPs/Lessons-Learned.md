@@ -21,7 +21,7 @@
 - [ ] **Monitor Only the Victim:** Onboard only the target VM (Vultr Windows) to the EDR to capture true telemetry.
 
 - [ ] **Network Isolation:** -
-- [ ] [ ] **Restrict Victim Exposure:** Lock down the victim VM's inbound traffic so only the attack VM can reach it — either via a Vultr firewall rule allowlisting the attacker's public IP, or via a Tailscale tailnet (with Vultr's public firewall closed). Document which method each case uses.
+- [ ] **Restrict Victim Exposure:** Lock down the victim VM's inbound traffic so only the attack VM can reach it — either via a Vultr firewall rule allowlisting the attacker's public IP, or via a Tailscale tailnet (with Vultr's public firewall closed). Document which method each case uses.
   > 💼 **Real SOC Context:** The victim still needs outbound internet for EDR telemetry, so "isolation" means controlling inbound access, not disconnecting the host. A public attacker IP mirrors an external threat (enrichable via threat intel); a Tailscale `100.x.x.x` address mirrors an internal or VPN-sourced threat, where the analyst must identify the source from asset inventory and VPN logs.
 ---
 
