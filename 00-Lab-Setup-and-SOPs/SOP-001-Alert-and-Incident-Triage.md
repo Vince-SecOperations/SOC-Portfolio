@@ -24,7 +24,6 @@ This SOP defines one repeatable method for triaging every alert and incident in 
 | **F2: Pivot & Corroborate** | *Is it real?* | Independent evidence for or against the alert |
 | **F3: The Triage Clock** | *How fast, and who decides?* | Priority, SLA timebox, escalate-or-close decision |
 
-Every investigation in `01-Investigations/` states which SOP version it followed and records its F1, F2 and F3 outputs (see [Appendix A](#appendix-a-case-file-header-template)).
 
 ## 2. Scope
 
@@ -282,50 +281,7 @@ METHOD: SOP-001 v1.0 (F1, F2, F3)
 - Microsoft Learn: Advanced hunting with Microsoft Sentinel data in the Defender portal
 - MITRE ATT&CK: https://attack.mitre.org
 
----
 
-## Appendix A: Case-file header template
-
-Paste this at the top of every write-up in `01-Investigations/`:
-
-```markdown
-## Triage Summary
-
-| Field | Value |
-|---|---|
-| Method | [SOP-001 v1.0](../00-Lab-Setup-and-SOPs/SOP-001-Alert-and-Incident-Triage.md) |
-| Incident / Alert ID | |
-| Detection source | Vendor / Custom rule: `<rule name>` |
-| First activity (UTC) | |
-| Last activity (UTC) | |
-| Incident created (UTC) | |
-
-### F3: Triage Clock (initial)
-- Severity: · Asset tier: · Modifiers: · **Initial priority:**
-- Timebox: acknowledge by ____ · verdict by ____
-
-### F2: Pivot & Corroborate
-| # | Source / table | Query purpose | Finding |
-|---|---|---|---|
-| 0 | Rule query / alert evidence | What matched | |
-| 1 | | | |
-| 2 | | | |
-
-### F1: Verdict Test
-- Q1 Did it happen? → 
-- Q2 Expected or authorised? → 
-- **Classification / Determination:** 
-- **Outcome:** 
-
-### F3: Triage Clock (decision)
-- Final priority: · Decision: close / contain / escalate
-- TTD: · TTA: · TTV: · TTR:
-
-### Closing note
-(Section 8 format)
-```
-
----
 
 ## Revision history
 
