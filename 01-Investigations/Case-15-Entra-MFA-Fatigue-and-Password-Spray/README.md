@@ -77,7 +77,7 @@ The incident window is the **week before Black Friday**, the business's highest-
 | Identity | Role | Criticality | Why |
 |---|---|---|---|
 | `support@` (IT Helpdesk) | Helpdesk Administrator | **High** · priority account | Can reset other users' passwords, a direct path to wider compromise |
-| `contact@` (HR Manager) | Standard user | **Medium** | Access to employee personal data (PII) |
+| `contact@` (HR Manager) | User Administrator | **High** · business-sensitive | Can create and manage users and reset passwords, plus access to employee personal data (PII) |
 | `enterprise@` (Vincent Chingy) | Global Administrator | **Very high (Tier 0)** | Full tenant control |
 
 > Criticality decides triage order: an MFA-fatigue alert on the Helpdesk Administrator is worked before the same alert on a standard user.
