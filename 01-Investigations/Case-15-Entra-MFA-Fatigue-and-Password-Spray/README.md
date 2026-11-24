@@ -44,12 +44,23 @@ The incident window is the **week before Black Friday**, the business's highest-
 
 ## 3. Scenario
 
-### Pre-conditions (the gaps that made this possible)
+This attack has two halves: a **technical** half (spray to find a valid password) and a **human** half (social engineering to defeat MFA number matching). Modern push MFA defeats *blind* fatigue, so a real intrusion pairs the prompt flood with a phone call. The case documents both.
 
-1. Two role-based mailboxes, `support@` (IT Helpdesk) and `contact@` (HR Manager), are published on the company website and in a recent recruitment post, so their usernames are effectively public. *(T1589.002)*
-2. Usernames follow a predictable pattern, so the tenant's other identities can be guessed.
-3. The IT Helpdesk account holds the **Helpdesk Administrator** role (it can reset passwords for non-admin users). It was not tagged as a priority account and had no stronger sign-in policy than ordinary staff.
-4. MFA is push-based (Microsoft Authenticator). It stops a stolen password on its own, but not a user who is pressured into approving.
+### Pre-conditions (the gaps that made this possible)
+1. Role mailboxes `support@` and `contact@` are published publicly, so usernames are known. *(T1589.002)*
+2. The IT Helpdesk account holds a password-reset-capable admin role and has no phishing-resistant MFA.
+3. MFA is Microsoft Authenticator push **with number matching** — which blocks blind approval but not a user who is talked through the number.
+
+### Attack chain
+1. **Password spray.** A single external IP (the attacker VM) sends failed sign-ins across several Bandman identities, a few attempts each. In the logs: a burst of credential failures from one IP across many accounts. *(T1110.003)*
+2. **Credential hit.** One account stops failing at the password step. The attacker now has a valid password but is stopped by MFA.
+3. **MFA fatigue as pressure.** The attacker triggers repeated Authenticator prompts to the user. With number matching, this cannot be blindly approved — its purpose here is **pressure and pretext**, not direct entry. *(T1621)*
+4. **Vishing relay (the bypass).** The attacker telephones the user posing as IT support — "we're seeing failed logins, I've sent a prompt to verify it's you, read me the number on your screen." Because the attacker's sign-in screen shows the matching number and the user's app does not, the user unknowingly supplies or enters the number the attacker needs. This is the step that defeats number matching, and it mirrors the Scattered Spider / Lapsus$ / Uber (2022) playbook. *(T1656 Impersonation)*
+5. **Impact.** The prompt is satisfied and the attacker obtains an authenticated session from an IP unfamiliar to the user. *(T1078.004)* With a password-reset-capable account, this is a path to tenant-wide compromise; the investigation then checks the audit log for attacker-registered MFA methods and passwords reset by the account. *(T1098.005)*
+
+**Infrastructure pivot (lab note):** in this simulation the spray originated from the attacker VM IP, while the fatigue prompts and the successful approval came from a separate residential IP. This deliberately models an attacker rotating infrastructure between the credential-access and MFA phases, and it makes the "success from a new/unfamiliar IP" signal realistic.
+
+> The lesson the episode lands on: number matching killed *blind* MFA bombing, so the attack evolved into **bombing + vishing**. The control that actually closes it is **phishing-resistant MFA (FIDO2 / passkeys)** — there is no human-relayable number to read out.
 
 ### What the SOC observes
 
