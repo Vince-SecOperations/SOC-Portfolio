@@ -1,0 +1,32 @@
+// ============================================================
+// DR-03 | Post-Takeover Pivot: Persistence / Privilege Escalation
+// Case 15 | ATT&CK T1098.005 / T1556.006 / T1098.003
+// Platform: Microsoft SENTINEL analytics rule (requires AuditLogs — not in free Defender hunting)
+// Behaviour, no indicators: an identity that was just under credential/MFA
+//   attack then performs a sensitive directory action. Correlated by ACTOR.
+// Severity: High -> Critical
+// ============================================================
+let lookback = 2h;
+let linkWindow = 1h;
+let AttackCodes = dynamic(["500121","50074","50076","50203","50126","50053","50055","50056"]);
+let SensitiveOps = dynamic([
+    "User registered security info","Register security info","Add registered security info",   // new MFA method = persistence
+    "Reset user password","Reset password (self-service)","Change user password",              // credential control
+    "Add member to role","Add eligible member to role",                                        // privilege escalation
+    "Consent to application","Add OAuth2PermissionGrant","Add app role assignment grant to user" // OAuth persistence
+]);
+let UnderAttack =
+    SigninLogs
+    | where TimeGenerated > ago(lookback)
+    | where ResultType in (AttackCodes)
+    | summarize AttackEvents = count(), LastAttack = max(TimeGenerated) by UserId, UserPrincipalName;
+AuditLogs
+| where TimeGenerated > ago(lookback)
+| where OperationName in (SensitiveOps) or OperationName has "security info"
+| extend ActorId = tostring(InitiatedBy.user.id),
+         Actor   = tostring(InitiatedBy.user.userPrincipalName),
+         Target  = tostring(TargetResources[0].userPrincipalName)
+| join kind=inner UnderAttack on $left.ActorId == $right.UserId
+| where TimeGenerated between (LastAttack .. LastAttack + linkWindow)
+| project TimeGenerated, Actor, Operation = OperationName, Target,
+          AttackEvents, LastAttack, Result, CorrelationId
