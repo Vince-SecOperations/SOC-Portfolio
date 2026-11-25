@@ -1,54 +1,39 @@
 // ============================================================
-// DR-02 | MFA Fatigue Followed by Successful Sign-in from an External Source
-// Case: CASE-15 | ATT&CK: T1621 -> T1078.004
-// Platform: Defender XDR > Advanced hunting > Create detection rule
-// Severity: High (treat as Critical when the account is a priority/critical asset)
-// Entities: AccountObjectId / AccountUpn (the victim), IPAddress
-// Status: DRAFT v0.1 (validate and tune after the simulation)
-// ------------------------------------------------------------
-// Logic (impact):
-//   1. An account receives repeated MFA failures/denials from one source IP
-//   2. That SAME account then signs in SUCCESSFULLY from that SAME source
-//   3. The source is outside known corporate ranges (external)
-// AlsoSprayed adds context: the source IP also sprayed other accounts.
-// This is where Identity Protection risk becomes meaningful: the
-// correct password was used, so RiskLevelAggregated/RiskState can score.
+// DR-02 | Identity Takeover: MFA Fatigue -> Anomalous Success
+// Case 15 | ATT&CK T1621 -> T1078.004 | Platform: Defender XDR custom detection
+// Behaviour, no indicators:
+//   (1) a burst of unsatisfied MFA for an identity (fatigue)
+//   (2) an INTERACTIVE success for that identity, after the pressure
+//   (3) from a source NEW for that identity (vs its own 30-day baseline)
+// Severity: High (Critical on a critical-asset identity) | Entities: AccountObjectId, IPAddress
+// Window = 7d for validation/first-run capture; production: let frequency drive the window.
 // ============================================================
-let lookback = 2h;
-let minMfaFailures = 3;                              // lab value: tune
-let MfaFailureCodes = dynamic([500121]);             // strong-auth step failed/denied/timed out (confirm against your results)
-let CredentialFailureCodes = dynamic([50126, 50053, 50055, 50056]);
-let CorporateEgressRanges = dynamic(["203.0.113.0/24"]); // placeholder: replace with known office/VPN egress ranges
-// 1) Accounts put under MFA pressure, per source IP
+let pressureWindow = 7d;
+let baselineWindow = 30d;
+let minMfaFailures = 3;
+let MfaChallengeCodes = dynamic([500121, 50074, 50076, 50203]);  // 50203: confirm via error-code lookup
 let MfaPressure =
     EntraIdSignInEvents
-    | where Timestamp > ago(lookback)
-    | where ErrorCode in (MfaFailureCodes)
+    | where Timestamp > ago(pressureWindow)
+    | where tostring(LogonType) !contains "nonInteractive"
+    | where ErrorCode in (MfaChallengeCodes)
     | summarize MfaFailures = count(),
-                FirstMfaFailure = min(Timestamp),
-                LastMfaFailure = max(Timestamp)
-                by AccountUpn, IPAddress
+                FirstPressure = min(Timestamp), LastPressure = max(Timestamp)
+      by AccountObjectId
     | where MfaFailures >= minMfaFailures;
-// 2) Source IPs that also sprayed other accounts (context flag)
-let SprayingIPs =
+let KnownSurface =
     EntraIdSignInEvents
-    | where Timestamp > ago(lookback)
-    | where ErrorCode in (CredentialFailureCodes)
-    | summarize TargetedAccounts = dcount(AccountUpn) by IPAddress
-    | where TargetedAccounts >= 2
-    | project IPAddress, AlsoSprayed = true;
-// 3) Impact: successful sign-in to the same account, same source, after the prompts
+    | where Timestamp between (ago(baselineWindow) .. ago(pressureWindow))
+    | where ErrorCode == 0
+    | summarize by AccountObjectId, IPAddress;
 EntraIdSignInEvents
-| where Timestamp > ago(lookback)
+| where Timestamp > ago(pressureWindow)
 | where ErrorCode == 0
-| join kind=inner MfaPressure on AccountUpn, IPAddress
-| where Timestamp > FirstMfaFailure
-| extend IsCorporateIP = coalesce(ipv4_is_in_any_range(IPAddress, CorporateEgressRanges), false)
-| where not(IsCorporateIP)
-| join kind=leftouter SprayingIPs on IPAddress
-| extend AlsoSprayed = coalesce(AlsoSprayed, false)
-| summarize arg_max(Timestamp, *) by AccountUpn, IPAddress
-| project Timestamp, AccountUpn, AccountObjectId, AccountDisplayName,
-          IPAddress, Country, City, Application,
-          MfaFailures, FirstMfaFailure, LastMfaFailure, AlsoSprayed,
+| where tostring(LogonType) !contains "nonInteractive"
+| join kind=inner MfaPressure on AccountObjectId
+| where Timestamp >= FirstPressure
+| join kind=leftanti KnownSurface on AccountObjectId, IPAddress
+| summarize arg_max(Timestamp, *) by AccountObjectId, IPAddress
+| project Timestamp, ReportId, AccountUpn, AccountObjectId, IPAddress, Country, City,
+          Application, MfaFailures, FirstPressure, LastPressure,
           RiskLevelAggregated, RiskState, IsManaged, IsCompliant, UserAgent
